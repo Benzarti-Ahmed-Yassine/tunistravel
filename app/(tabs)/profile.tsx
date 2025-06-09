@@ -1,6 +1,6 @@
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Heart, MapPin, Bell, Globe, Moon, CircleHelp as HelpCircle, LogOut, Edit } from 'lucide-react-native';
+import { User, Settings, Heart, MapPin, Bell, Globe, Moon, CircleHelp as HelpCircle, LogOut, CreditCard as Edit } from 'lucide-react-native';
 import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
