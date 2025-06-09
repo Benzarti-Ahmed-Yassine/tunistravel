@@ -1,14 +1,80 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Platform, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { MapPin, Navigation, Star, Filter } from 'lucide-react-native';
-import { useState } from 'react';
+import { MapPin, Navigation, Star, Filter, Locate } from 'lucide-react-native';
 import { router } from 'expo-router';
 import { governorates } from '@/data/governorates';
+import { useTheme } from '@/contexts/ThemeContext';
+import * as Location from 'expo-location';
+
+// Mock MapView component for web compatibility
+const MapView = Platform.OS === 'web' ? 
+  ({ style, children }: any) => (
+    <View style={[style, { backgroundColor: '#E5E7EB', justifyContent: 'center', alignItems: 'center' }]}>
+      <MapPin size={48} color="#6B7280" />
+      <Text style={{ color: '#6B7280', marginTop: 8 }}>Carte interactive</Text>
+      <Text style={{ color: '#9CA3AF', fontSize: 12, marginTop: 4 }}>
+        Disponible sur mobile
+      </Text>
+      {children}
+    </View>
+  ) : 
+  require('react-native-maps').default;
+
+const Marker = Platform.OS === 'web' ? 
+  ({ children }: any) => <View>{children}</View> : 
+  require('react-native-maps').Marker;
 
 const categories = ['All', 'Historic', 'Museums', 'Beaches', 'Archaeological', 'Oasis'];
 
+interface UserLocation {
+  latitude: number;
+  longitude: number;
+}
+
 export default function MapTab() {
   const [selectedCategory, setSelectedCategory] = useState('All');
+  const [userLocation, setUserLocation] = useState<UserLocation | null>(null);
+  const [locationPermission, setLocationPermission] = useState<boolean>(false);
+  const { theme, isDark } = useTheme();
+
+  const styles = createStyles(theme, isDark);
+
+  useEffect(() => {
+    requestLocationPermission();
+  }, []);
+
+  const requestLocationPermission = async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        setLocationPermission(true);
+        getCurrentLocation();
+      } else {
+        setLocationPermission(false);
+        Alert.alert(
+          'Permission refusée',
+          'L\'accès à la localisation est nécessaire pour afficher votre position sur la carte.'
+        );
+      }
+    } catch (error) {
+      console.error('Error requesting location permission:', error);
+    }
+  };
+
+  const getCurrentLocation = async () => {
+    try {
+      const location = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setUserLocation({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+      });
+    } catch (error) {
+      console.error('Error getting current location:', error);
+    }
+  };
 
   // Get all attractions from all governorates
   const allAttractions = governorates.flatMap(gov => 
@@ -30,29 +96,75 @@ export default function MapTab() {
     router.push(`/governorate/${governorateId}`);
   };
 
+  const handleCurrentLocationPress = () => {
+    if (locationPermission) {
+      getCurrentLocation();
+    } else {
+      requestLocationPermission();
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Explore Tunisia</Text>
         <TouchableOpacity style={styles.filterButton}>
-          <Filter size={20} color="#2563EB" />
+          <Filter size={20} color={theme.colors.primary} />
         </TouchableOpacity>
       </View>
 
-      {/* Map Placeholder */}
+      {/* Map Container */}
       <View style={styles.mapContainer}>
-        <View style={styles.mapPlaceholder}>
-          <MapPin size={48} color="#2563EB" />
-          <Text style={styles.mapPlaceholderText}>Interactive Map</Text>
-          <Text style={styles.mapPlaceholderSubtext}>
-            Explore {allAttractions.length} attractions across 24 governorates
-          </Text>
-        </View>
+        <MapView
+          style={styles.map}
+          initialRegion={{
+            latitude: 33.8869,
+            longitude: 9.5375,
+            latitudeDelta: 4.0,
+            longitudeDelta: 4.0,
+          }}
+          region={userLocation ? {
+            latitude: userLocation.latitude,
+            longitude: userLocation.longitude,
+            latitudeDelta: 0.1,
+            longitudeDelta: 0.1,
+          } : undefined}
+        >
+          {Platform.OS !== 'web' && filteredAttractions.map((attraction) => (
+            <Marker
+              key={`${attraction.governorateId}-${attraction.id}`}
+              coordinate={{
+                latitude: attraction.coordinates.lat,
+                longitude: attraction.coordinates.lng,
+              }}
+              title={attraction.name}
+              description={attraction.description}
+            />
+          ))}
+          
+          {Platform.OS !== 'web' && userLocation && (
+            <Marker
+              coordinate={userLocation}
+              title="Ma position"
+              pinColor="blue"
+            />
+          )}
+        </MapView>
         
         {/* Current Location Button */}
-        <TouchableOpacity style={styles.currentLocationButton}>
-          <Navigation size={20} color="#FFFFFF" />
+        <TouchableOpacity 
+          style={styles.currentLocationButton}
+          onPress={handleCurrentLocationPress}
+        >
+          <Locate size={20} color="#FFFFFF" />
         </TouchableOpacity>
+
+        {/* Real-time info overlay */}
+        <View style={styles.infoOverlay}>
+          <Text style={styles.infoText}>
+            📍 {filteredAttractions.length} attractions • 🌡️ 24°C
+          </Text>
+        </View>
       </View>
 
       {/* Category Filter */}
@@ -82,8 +194,8 @@ export default function MapTab() {
       <ScrollView style={styles.locationsList} showsVerticalScrollIndicator={false}>
         <Text style={styles.locationsTitle}>
           {selectedCategory === 'All' 
-            ? `All Attractions (${filteredAttractions.length})` 
-            : `${selectedCategory} Attractions (${filteredAttractions.length})`
+            ? `Toutes les attractions (${filteredAttractions.length})` 
+            : `${selectedCategory} (${filteredAttractions.length})`
           }
         </Text>
         {filteredAttractions.map((attraction) => (
@@ -106,12 +218,12 @@ export default function MapTab() {
                 {attraction.description}
               </Text>
               <View style={styles.locationMeta}>
-                <MapPin size={12} color="#64748B" />
+                <MapPin size={12} color={theme.colors.textSecondary} />
                 <Text style={styles.governorateText}>{attraction.governorate}</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.navigateButton}>
-              <Navigation size={16} color="#2563EB" />
+              <Navigation size={16} color={theme.colors.primary} />
             </TouchableOpacity>
           </TouchableOpacity>
         ))}
@@ -121,10 +233,10 @@ export default function MapTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: theme.colors.background,
   },
   header: {
     flexDirection: 'row',
@@ -132,48 +244,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: theme.colors.border,
   },
   headerTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
   },
   filterButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? '#334155' : '#F1F5F9',
   },
   mapContainer: {
     height: 250,
     position: 'relative',
-    backgroundColor: '#E2E8F0',
+    backgroundColor: theme.colors.border,
   },
-  mapPlaceholder: {
+  map: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-  },
-  mapPlaceholderText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E293B',
-    marginTop: 12,
-  },
-  mapPlaceholderSubtext: {
-    fontSize: 14,
-    color: '#64748B',
-    marginTop: 4,
-    textAlign: 'center',
   },
   currentLocationButton: {
     position: 'absolute',
     bottom: 16,
     right: 16,
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.primary,
     borderRadius: 24,
     padding: 12,
     shadowColor: '#000',
@@ -182,27 +279,47 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
+  infoOverlay: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: theme.colors.surface,
+    borderRadius: 8,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  infoText: {
+    fontSize: 14,
+    color: theme.colors.text,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
   categoryContainer: {
     paddingHorizontal: 20,
     paddingVertical: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: theme.colors.border,
   },
   categoryButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
     marginRight: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? '#334155' : '#F1F5F9',
   },
   categoryButtonActive: {
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.primary,
   },
   categoryText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#64748B',
+    color: theme.colors.textSecondary,
   },
   categoryTextActive: {
     color: '#FFFFFF',
@@ -213,14 +330,14 @@ const styles = StyleSheet.create({
   locationsTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
   },
   locationCard: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     marginHorizontal: 20,
     marginBottom: 12,
     borderRadius: 12,
@@ -228,7 +345,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -250,7 +367,7 @@ const styles = StyleSheet.create({
   locationName: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.colors.text,
     flex: 1,
   },
   ratingContainer: {
@@ -261,17 +378,17 @@ const styles = StyleSheet.create({
     marginLeft: 2,
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.colors.text,
   },
   locationType: {
     fontSize: 12,
-    color: '#2563EB',
+    color: theme.colors.primary,
     fontWeight: '500',
     marginBottom: 4,
   },
   locationDescription: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     lineHeight: 16,
     marginBottom: 4,
   },
@@ -282,13 +399,13 @@ const styles = StyleSheet.create({
   governorateText: {
     marginLeft: 4,
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   navigateButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? '#334155' : '#F1F5F9',
   },
   bottomSpacing: {
     height: 100,

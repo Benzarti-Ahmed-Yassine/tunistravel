@@ -1,7 +1,11 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Switch, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { User, Settings, Heart, MapPin, Bell, Globe, Moon, CircleHelp as HelpCircle, LogOut } from 'lucide-react-native';
+import { User, Settings, Heart, MapPin, Bell, Globe, Moon, CircleHelp as HelpCircle, LogOut, Edit } from 'lucide-react-native';
 import { useState } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { useTheme } from '@/contexts/ThemeContext';
+import { useNotifications } from '@/contexts/NotificationContext';
+import { router } from 'expo-router';
 
 const savedPlaces = [
   {
@@ -24,16 +28,64 @@ const savedPlaces = [
   }
 ];
 
-const menuItems = [
-  { title: 'Notifications', icon: Bell, hasSwitch: true },
-  { title: 'Language', icon: Globe, subtitle: 'English', hasArrow: true },
-  { title: 'Dark Mode', icon: Moon, hasSwitch: true },
-  { title: 'Help & Support', icon: HelpCircle, hasArrow: true },
-];
-
 export default function ProfileTab() {
-  const [notifications, setNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
+  const { user, logout } = useAuth();
+  const { theme, themeMode, setThemeMode, isDark } = useTheme();
+  const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
+
+  const styles = createStyles(theme, isDark);
+
+  const handleLogout = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        { 
+          text: 'Déconnexion', 
+          style: 'destructive',
+          onPress: async () => {
+            await logout();
+            router.replace('/(auth)/login');
+          }
+        }
+      ]
+    );
+  };
+
+  const handleThemeChange = (value: boolean) => {
+    setThemeMode(value ? 'dark' : 'light');
+  };
+
+  const menuItems = [
+    { 
+      title: 'Notifications', 
+      icon: Bell, 
+      hasSwitch: true,
+      value: notificationsEnabled,
+      onToggle: setNotificationsEnabled
+    },
+    { 
+      title: 'Langue', 
+      icon: Globe, 
+      subtitle: 'Français', 
+      hasArrow: true,
+      onPress: () => Alert.alert('Langue', 'Fonctionnalité à venir')
+    },
+    { 
+      title: 'Mode sombre', 
+      icon: Moon, 
+      hasSwitch: true,
+      value: themeMode === 'dark' || (themeMode === 'system' && isDark),
+      onToggle: handleThemeChange
+    },
+    { 
+      title: 'Aide & Support', 
+      icon: HelpCircle, 
+      hasArrow: true,
+      onPress: () => Alert.alert('Aide', 'Contactez-nous à support@tunisia-travel.com')
+    },
+  ];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -41,36 +93,40 @@ export default function ProfileTab() {
         {/* Profile Header */}
         <View style={styles.profileHeader}>
           <View style={styles.profileImageContainer}>
-            <User size={40} color="#FFFFFF" />
+            {user?.avatar ? (
+              <Image source={{ uri: user.avatar }} style={styles.profileImage} />
+            ) : (
+              <User size={40} color="#FFFFFF" />
+            )}
           </View>
-          <Text style={styles.profileName}>Welcome, Traveler!</Text>
-          <Text style={styles.profileSubtitle}>Exploring the beauty of Tunisia</Text>
+          <Text style={styles.profileName}>{user?.name || 'Voyageur'}</Text>
+          <Text style={styles.profileEmail}>{user?.email}</Text>
           <TouchableOpacity style={styles.editProfileButton}>
-            <Settings size={16} color="#2563EB" />
-            <Text style={styles.editProfileText}>Edit Profile</Text>
+            <Edit size={16} color={theme.colors.primary} />
+            <Text style={styles.editProfileText}>Modifier le profil</Text>
           </TouchableOpacity>
         </View>
 
         {/* Trip Stats */}
         <View style={styles.statsContainer}>
           <View style={styles.statCard}>
-            <MapPin size={20} color="#2563EB" />
+            <MapPin size={20} color={theme.colors.primary} />
             <Text style={styles.statNumber}>12</Text>
-            <Text style={styles.statLabel}>Places Visited</Text>
+            <Text style={styles.statLabel}>Lieux visités</Text>
           </View>
           <View style={styles.statCard}>
-            <Heart size={20} color="#EF4444" />
+            <Heart size={20} color={theme.colors.error} />
             <Text style={styles.statNumber}>8</Text>
-            <Text style={styles.statLabel}>Favorites</Text>
+            <Text style={styles.statLabel}>Favoris</Text>
           </View>
         </View>
 
         {/* Saved Places */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Saved Places</Text>
+            <Text style={styles.sectionTitle}>Lieux sauvegardés</Text>
             <TouchableOpacity>
-              <Text style={styles.viewAllText}>View All</Text>
+              <Text style={styles.viewAllText}>Voir tout</Text>
             </TouchableOpacity>
           </View>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.savedPlacesContainer}>
@@ -88,16 +144,16 @@ export default function ProfileTab() {
 
         {/* Travel Preferences */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Travel Preferences</Text>
+          <Text style={styles.sectionTitle}>Préférences de voyage</Text>
           <View style={styles.preferencesContainer}>
             <TouchableOpacity style={styles.preferenceChip}>
-              <Text style={styles.preferenceText}>🏛️ Historical Sites</Text>
+              <Text style={styles.preferenceText}>🏛️ Sites historiques</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.preferenceChip}>
-              <Text style={styles.preferenceText}>🏖️ Beaches</Text>
+              <Text style={styles.preferenceText}>🏖️ Plages</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.preferenceChip}>
-              <Text style={styles.preferenceText}>🍽️ Local Cuisine</Text>
+              <Text style={styles.preferenceText}>🍽️ Cuisine locale</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.preferenceChip}>
               <Text style={styles.preferenceText}>🛍️ Shopping</Text>
@@ -107,14 +163,18 @@ export default function ProfileTab() {
 
         {/* Settings Menu */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Settings</Text>
+          <Text style={styles.sectionTitle}>Paramètres</Text>
           <View style={styles.menuContainer}>
             {menuItems.map((item, index) => {
               const IconComponent = item.icon;
               return (
-                <TouchableOpacity key={index} style={styles.menuItem}>
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.menuItem}
+                  onPress={item.onPress}
+                >
                   <View style={styles.menuItemLeft}>
-                    <IconComponent size={20} color="#64748B" />
+                    <IconComponent size={20} color={theme.colors.textSecondary} />
                     <View style={styles.menuItemText}>
                       <Text style={styles.menuItemTitle}>{item.title}</Text>
                       {item.subtitle && (
@@ -122,20 +182,12 @@ export default function ProfileTab() {
                       )}
                     </View>
                   </View>
-                  {item.hasSwitch && item.title === 'Notifications' && (
+                  {item.hasSwitch && (
                     <Switch
-                      value={notifications}
-                      onValueChange={setNotifications}
+                      value={item.value}
+                      onValueChange={item.onToggle}
                       thumbColor="#FFFFFF"
-                      trackColor={{ true: '#2563EB', false: '#CBD5E1' }}
-                    />
-                  )}
-                  {item.hasSwitch && item.title === 'Dark Mode' && (
-                    <Switch
-                      value={darkMode}
-                      onValueChange={setDarkMode}
-                      thumbColor="#FFFFFF"
-                      trackColor={{ true: '#2563EB', false: '#CBD5E1' }}
+                      trackColor={{ true: theme.colors.primary, false: theme.colors.border }}
                     />
                   )}
                   {item.hasArrow && (
@@ -149,20 +201,20 @@ export default function ProfileTab() {
 
         {/* About Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About</Text>
+          <Text style={styles.sectionTitle}>À propos</Text>
           <View style={styles.aboutContainer}>
             <Text style={styles.aboutText}>
-              Tunisia Travel Guide helps you discover the rich culture, history, and beauty of Tunisia. 
-              From ancient Carthage to the blue and white streets of Sidi Bou Said, explore it all with confidence.
+              Tunisia Travel Guide vous aide à découvrir la richesse culturelle, l'histoire et la beauté de la Tunisie. 
+              De l'ancienne Carthage aux rues bleues et blanches de Sidi Bou Said, explorez tout en toute confiance.
             </Text>
             <Text style={styles.versionText}>Version 1.0.0</Text>
           </View>
         </View>
 
         {/* Sign Out */}
-        <TouchableOpacity style={styles.signOutButton}>
-          <LogOut size={20} color="#EF4444" />
-          <Text style={styles.signOutText}>Sign Out</Text>
+        <TouchableOpacity style={styles.signOutButton} onPress={handleLogout}>
+          <LogOut size={20} color={theme.colors.error} />
+          <Text style={styles.signOutText}>Se déconnecter</Text>
         </TouchableOpacity>
 
         <View style={styles.bottomSpacing} />
@@ -171,10 +223,10 @@ export default function ProfileTab() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: theme.colors.background,
   },
   scrollView: {
     flex: 1,
@@ -182,28 +234,34 @@ const styles = StyleSheet.create({
   profileHeader: {
     alignItems: 'center',
     paddingVertical: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
+    borderBottomColor: theme.colors.border,
   },
   profileImageContainer: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#2563EB',
+    backgroundColor: theme.colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
+    overflow: 'hidden',
+  },
+  profileImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
   },
   profileName: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
     marginBottom: 4,
   },
-  profileSubtitle: {
+  profileEmail: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     marginBottom: 16,
   },
   editProfileButton: {
@@ -212,13 +270,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? '#334155' : '#F1F5F9',
   },
   editProfileText: {
     marginLeft: 8,
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563EB',
+    color: theme.colors.primary,
   },
   statsContainer: {
     flexDirection: 'row',
@@ -228,25 +286,25 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     padding: 20,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   statNumber: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
     marginTop: 8,
   },
   statLabel: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     marginTop: 4,
   },
   section: {
@@ -262,14 +320,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
     paddingHorizontal: 20,
     marginBottom: 16,
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#2563EB',
+    color: theme.colors.primary,
   },
   savedPlacesContainer: {
     paddingLeft: 20,
@@ -277,12 +335,12 @@ const styles = StyleSheet.create({
   savedPlaceCard: {
     width: 120,
     marginRight: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 12,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -297,12 +355,12 @@ const styles = StyleSheet.create({
   savedPlaceName: {
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.colors.text,
     marginBottom: 2,
   },
   savedPlaceType: {
     fontSize: 10,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
   },
   preferencesContainer: {
     flexDirection: 'row',
@@ -314,20 +372,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: isDark ? '#334155' : '#F1F5F9',
   },
   preferenceText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.colors.text,
   },
   menuContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     marginHorizontal: 20,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
@@ -338,7 +396,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: theme.colors.border,
   },
   menuItemLeft: {
     flexDirection: 'row',
@@ -351,37 +409,37 @@ const styles = StyleSheet.create({
   menuItemTitle: {
     fontSize: 16,
     fontWeight: '500',
-    color: '#1E293B',
+    color: theme.colors.text,
   },
   menuItemSubtitle: {
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     marginTop: 2,
   },
   arrowText: {
     fontSize: 20,
-    color: '#CBD5E1',
+    color: theme.colors.border,
   },
   aboutContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     marginHorizontal: 20,
     borderRadius: 12,
     padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowOpacity: isDark ? 0.3 : 0.05,
     shadowRadius: 8,
     elevation: 2,
   },
   aboutText: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     lineHeight: 20,
     marginBottom: 12,
   },
   versionText: {
     fontSize: 12,
-    color: '#94A3B8',
+    color: theme.colors.textSecondary,
   },
   signOutButton: {
     flexDirection: 'row',
@@ -390,15 +448,15 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     paddingVertical: 16,
     borderRadius: 12,
-    backgroundColor: '#FEF2F2',
+    backgroundColor: isDark ? '#7F1D1D' : '#FEF2F2',
     borderWidth: 1,
-    borderColor: '#FECACA',
+    borderColor: isDark ? '#DC2626' : '#FECACA',
   },
   signOutText: {
     marginLeft: 8,
     fontSize: 16,
     fontWeight: '600',
-    color: '#EF4444',
+    color: theme.colors.error,
   },
   bottomSpacing: {
     height: 100,

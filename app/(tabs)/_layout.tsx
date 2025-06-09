@@ -1,17 +1,20 @@
 import { Tabs } from 'expo-router';
 import { MapPin, Compass, BookOpen, User } from 'lucide-react-native';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function TabLayout() {
+  const { theme, isDark } = useTheme();
+
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#64748B',
+        tabBarActiveTintColor: theme.colors.primary,
+        tabBarInactiveTintColor: theme.colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: '#FFFFFF',
+          backgroundColor: theme.colors.surface,
           borderTopWidth: 1,
-          borderTopColor: '#E2E8F0',
+          borderTopColor: theme.colors.border,
           paddingTop: 8,
           paddingBottom: 8,
           height: 70,

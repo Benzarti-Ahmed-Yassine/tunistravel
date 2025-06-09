@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { MapPin, Star } from 'lucide-react-native';
 import { Governorate } from '@/data/governorates';
+import { useTheme } from '@/contexts/ThemeContext';
 
 interface GovernorateCardProps {
   governorate: Governorate;
@@ -9,6 +10,9 @@ interface GovernorateCardProps {
 }
 
 export default function GovernorateCard({ governorate, onPress }: GovernorateCardProps) {
+  const { theme, isDark } = useTheme();
+  const styles = createStyles(theme, isDark);
+
   return (
     <TouchableOpacity style={styles.card} onPress={onPress}>
       <Image source={{ uri: governorate.image }} style={styles.image} />
@@ -23,7 +27,7 @@ export default function GovernorateCard({ governorate, onPress }: GovernorateCar
         </Text>
         <View style={styles.footer}>
           <View style={styles.locationInfo}>
-            <MapPin size={14} color="#64748B" />
+            <MapPin size={14} color={theme.colors.textSecondary} />
             <Text style={styles.attractionsCount}>
               {governorate.attractions.length} attractions
             </Text>
@@ -42,15 +46,15 @@ export default function GovernorateCard({ governorate, onPress }: GovernorateCar
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (theme: any, isDark: boolean) => StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.surface,
     borderRadius: 16,
     marginHorizontal: 20,
     marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: isDark ? 0.3 : 0.08,
     shadowRadius: 12,
     elevation: 4,
     overflow: 'hidden',
@@ -72,25 +76,25 @@ const styles = StyleSheet.create({
   name: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1E293B',
+    color: theme.colors.text,
     flex: 1,
   },
   nameArabic: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#2563EB',
+    color: theme.colors.primary,
     textAlign: 'right',
   },
   capital: {
     fontSize: 12,
-    color: '#2563EB',
+    color: theme.colors.primary,
     fontWeight: '600',
     marginBottom: 8,
     textTransform: 'uppercase',
   },
   description: {
     fontSize: 14,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     lineHeight: 20,
     marginBottom: 12,
   },
@@ -106,7 +110,7 @@ const styles = StyleSheet.create({
   attractionsCount: {
     marginLeft: 4,
     fontSize: 12,
-    color: '#64748B',
+    color: theme.colors.textSecondary,
     fontWeight: '500',
   },
   ratingContainer: {
@@ -117,6 +121,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
     fontSize: 12,
     fontWeight: '600',
-    color: '#1E293B',
+    color: theme.colors.text,
   },
 });
